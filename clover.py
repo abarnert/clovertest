@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import csv
+import logging
 import os
 import re
 import sqlite3
@@ -35,20 +36,33 @@ def read_datafile(fname, format):
 
 def make_table(db, tablename, format):
     cols = ',\n'.join('{column name} {datatype}'.format_map(col) for col in format)
-    db.execute(f'''CREATE TABLE IF NOT EXISTS {tablename} ({cols})''')
+    sql = f'''CREATE TABLE IF NOT EXISTS {tablename} ({cols})'''
+    logging.info(f"'{sql}'")
+    db.execute(sql)
 
 rfname = re.compile(r'data/([A-Za-z0-9]+?)_(\d\d\d\d-\d\d-\d\d)\.txt')
 def handle_datafile(db, fname):
-    m = rfname.match(fname)
-    formatname = m.group(1)
-    format = list(read_format(formatname))
-    make_table(db, formatname, format)
-    cols = ', '.join(col['column name'] for col in format)
-    vars = ', '.join('?' for col in format)
-    sql = f'INSERT INTO {formatname} ({cols}) VALUES ({vars})'    
-    db.executemany(sql,
-                   (list(row.values()) for row in read_datafile(fname, format)))
-    db.execute('COMMIT')
+    logger.info(f"opening data file '{fname}'")
+    try:
+        m = rfname.match(fname)
+        formatname = m.group(1)
+        logger.debug(f"reading format '{formatname}'")
+        format = list(read_format(formatname))
+        make_table(db, formatname, format)
+        cols = ', '.join(col['column name'] for col in format)
+        vars = ', '.join('?' for col in format)
+        sql = f'INSERT INTO {formatname} ({cols}) VALUES ({vars})'
+        # NOTE: It might be slightly more efficient to use executemany here,
+        # but this way we can log each row.
+        try:
+            for row in read_datafile(fname, format):
+                values = list(row.values())
+                logger.debug(f"'{sql}', {values}")
+                db.execute(sql, values)
+        finally:
+            db.execute('COMMIT')
+    except Exception as e:
+        logger.exception(f"failed on data file '{fname}'")
 
 def handle_dir(db, dname):
     for fname in os.listdir(dname):
@@ -56,6 +70,13 @@ def handle_dir(db, dname):
             handle_datafile(db, os.path.join(dname, fname))
  
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG,
+                        filename='clover.log',
+                        format='%(asctime)s:%(levelname)-8s:%(message)s')
+    logger = logging.getLogger('clover')
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    logger.addHandler(console)
     path = os.path.abspath(os.path.dirname(sys.argv[0]))
     os.chdir(path)
     with opendb() as db:
