@@ -4,6 +4,7 @@
 * Python 3.6+ (as `python3` on `PATH`)
 * Complete Python stdlib
 * `sqlite3` command-line tool (as `sqlite3` on `PATH`) (for tests only)
+* nim 0.17+ (optional)
 
 # Running
 
@@ -12,6 +13,8 @@ As specified, there should be `data` and `specs` directories in the application 
 The output will go into a sqlite3 database named `clover.db` in that same directory.
 
 Note that if you run the script multiple times with the same data, you will get duplicate rows. (By default, sqlite3 maintains a hidden auto-int primary key, effectively a row ID, so each of these inserted rows ends up unique as far as it's concerned.)
+
+There's also a nim implementation included, mainly just so I could play with the language (this seemed like a good problem for that). To compile it, you'll need to install the compiler (`brew install nim` should do it on OS X, and I think most Linux package managers have it), then `nim compile clover.nim`. This will generate a binary `clover` that you can run. This one requires that CWD be the source directory, doesn't log as nicely, and probably has additional bugs. It's also slower, despite being a compiled language (not surprising, given that most of the work happens inside Python modules like `csv` and `sqlite3`, not actual Python code).
 
 # Data types
 
@@ -44,3 +47,5 @@ The `testformat1` table tests the error handling. Because Zaphod's `valid` of `Z
 The `superheroes` table should have 12 rows from the 4 files. The empty file should not have caused a problem. Many of the `identity` values will be truncated. Some of the names contain special characters--both ASCII punctuation that could screw up careless formatting code, and Unicode stuff like CJK and astral characters that could cause mojibake.
 
 If the tests pass, nothing gets written to stdout (although the usual INFO logging of the names of the 6 files goes stderr), and the script exits successfully. Otherwise, you get an `AssertionError` traceback.
+
+The `testnim.py` script does the same thing, but runs `clover` instead. You'll have to compile the `nim` implementaton manually.
