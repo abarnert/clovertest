@@ -1,0 +1,4 @@
+"column name",width,datatype
+first,10,TEXT
+last,10,TEXT
+identity,10,TEXT

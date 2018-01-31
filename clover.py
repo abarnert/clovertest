@@ -25,6 +25,7 @@ _CONVERSIONS = {
 def read_datafile(fname, format):
     with open(fname, encoding='utf-8') as f:
         for line in f:
+            logger.debug(f"'{line.rstrip()}'")
             pos = 0
             row = {}
             for col in format:
@@ -37,18 +38,20 @@ def read_datafile(fname, format):
 def make_table(db, tablename, format):
     cols = ',\n'.join('{column name} {datatype}'.format_map(col) for col in format)
     sql = f'''CREATE TABLE IF NOT EXISTS {tablename} ({cols})'''
-    logging.info(f"'{sql}'")
+    logging.debug(f"'{sql}'")
     db.execute(sql)
 
 rfname = re.compile(r'data/([A-Za-z0-9]+?)_(\d\d\d\d-\d\d-\d\d)\.txt')
 def handle_datafile(db, fname):
-    logger.info(f"opening data file '{fname}'")
+    logger.info(f"data file '{fname}'")
     try:
         m = rfname.match(fname)
         formatname = m.group(1)
         logger.debug(f"reading format '{formatname}'")
         format = list(read_format(formatname))
         make_table(db, formatname, format)
+        logger.debug("'BEGIN'")
+        db.execute('BEGIN')
         cols = ', '.join(col['column name'] for col in format)
         vars = ', '.join('?' for col in format)
         sql = f'INSERT INTO {formatname} ({cols}) VALUES ({vars})'
@@ -59,7 +62,11 @@ def handle_datafile(db, fname):
                 values = list(row.values())
                 logger.debug(f"'{sql}', {values}")
                 db.execute(sql, values)
-        finally:
+        except:
+            logger.debug("'ROLLBACK'")
+            db.execute('ROLLBACK')
+        else:
+            logger.debug("'COMMIT'")
             db.execute('COMMIT')
     except Exception as e:
         logger.exception(f"failed on data file '{fname}'")
